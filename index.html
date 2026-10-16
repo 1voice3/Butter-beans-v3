@@ -1,0 +1,175 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="apple-mobile-web-app-capable" content="yes"><title>Hazel's Bug Adventure</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{margin:0;height:100%;overflow:hidden;background:#bdf0ff;font-family:"Chalkboard SE","Comic Sans MS",system-ui,sans-serif;touch-action:manipulation}
+body{background:radial-gradient(circle at 30% 20%,#fff9c4,#bdf0ff 60%,#c8f7c5)}
+#bf{position:fixed;inset:0;z-index:30;pointer-events:none}
+#wel{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:20;flex-direction:column;line-height:1.1;font-size:17vw;font-weight:900;text-align:center;opacity:0;pointer-events:none}
+#wel span{display:inline-block;padding:0 .04em;background:linear-gradient(90deg,red,orange,gold,lime,cyan,blue,violet,red);background-size:300% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:rb 2s linear infinite;filter:drop-shadow(0 0 6px #fff);transition:transform .9s ease-out,opacity .9s}
+@keyframes rb{to{background-position:300% 0}}
+.scr{position:fixed;inset:0;overflow-y:auto;padding:max(env(safe-area-inset-top),14px) 14px 110px;z-index:10;background:inherit}
+#menu{display:none;scroll-snap-type:y proximity}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;justify-items:center;padding-top:50px}
+.b{width:26vw;height:26vw;max-width:120px;max-height:120px;border-radius:50%;border:4px solid #fff;display:flex;align-items:center;justify-content:center;flex-direction:column;font-size:11vw;color:#fff;font-weight:900;box-shadow:inset -6px -8px 14px rgba(0,0,0,.18),inset 6px 6px 12px rgba(255,255,255,.6),0 6px 10px rgba(0,0,0,.2);scroll-snap-align:center;cursor:pointer;overflow:hidden;position:relative}
+.b small{font-size:3.2vw;color:#fff;font-weight:700}.b img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0;opacity:.85}.b i{position:relative;font-style:normal;text-shadow:0 2px 4px #0006}
+.grey{background:#ccd !important;color:#fff}.full{grid-column:1/-1;width:60vw;max-width:240px;height:auto;aspect-ratio:1}
+@keyframes bn{0%,100%{transform:translateY(0) rotate(-6deg)}30%{transform:translateY(-34px) rotate(8deg) scale(1.08)}60%{transform:translate(18px,-8px) rotate(-8deg)}}.bounce{animation:bn 1.2s infinite}
+#back,#mute,#vc,#st{position:fixed;z-index:40;width:64px;height:64px;border-radius:50%;border:4px solid #fff;font-size:34px;background:#ff6fa5;color:#fff;box-shadow:0 4px 8px #0004}
+#vc{left:14px;top:max(env(safe-area-inset-top),12px);width:50px;height:50px;font-size:24px;background:#ffb703}#st{left:14px;top:calc(max(env(safe-area-inset-top),12px) + 62px);width:50px;height:50px;font-size:22px;background:#999}#back{left:14px;bottom:max(env(safe-area-inset-bottom),18px);display:none}#mute{right:14px;top:max(env(safe-area-inset-top),12px);width:50px;height:50px;font-size:24px;background:#5ac8fa}
+#say{position:fixed;left:50%;transform:translateX(-50%);bottom:90px;max-width:88vw;background:#fff;border:4px solid #ffb703;border-radius:22px;padding:10px 16px;font-size:18px;z-index:41;display:none;text-align:center}
+#ok{position:fixed;inset:0;z-index:50;display:none;align-items:center;justify-content:center;font-size:40vw;color:#2ecc71;pointer-events:none;text-shadow:0 0 20px #fff}
+.card{background:#fff;border-radius:20px;padding:12px;margin:12px 0;box-shadow:0 4px 10px #0003;text-align:center}.card img{max-width:100%;border-radius:14px}
+.big{font-size:22vw;text-align:center;margin:0;color:#ff6fa5;text-shadow:0 3px #fff}h2{text-align:center}
+button.t{font:inherit;font-size:20px;padding:12px 18px;margin:5px;border-radius:30px;border:3px solid #fff;background:#8ac926;color:#fff;box-shadow:0 3px 6px #0004}
+.pg{font-size:26px;line-height:1.5;background:#fffbe6;border-radius:18px;padding:16px;margin:10px 0}
+#print{display:none}@media print{body>*:not(#print){display:none!important}#print{display:block!important;overflow:visible}#print .pp{page-break-after:always;padding:20px;font-size:22px}#print img{max-width:90%}html,body{overflow:visible}}
+</style></head><body>
+<canvas id="bf"></canvas><div id="wel">Welcome Hazel</div>
+<button id="mute">🔊</button><button id="vc">🎙️</button><button id="st">⚙️</button><button id="back">⬅</button><div id="say"></div><div id="ok">✔</div>
+<div id="menu" class="scr"></div><div id="sub" class="scr" style="display:none"></div><div id="print"></div>
+<input type="file" id="cam" accept="image/*" capture="environment" hidden>
+<script>
+const $=id=>document.getElementById(id),esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const CV=$('bf'),cx=CV.getContext('2d');let W,H;function rs(){W=CV.width=innerWidth*devicePixelRatio;H=CV.height=innerHeight*devicePixelRatio;}rs();addEventListener('resize',rs);
+const DPR=devicePixelRatio;
+let S={pics:JSON.parse(localStorage.hz||'[]')},muted=false,AC,act=Date.now(),follow=0,phase='launch';
+const COL=['#ff595e','#ff924c','#ffca3a','#8ac926','#1982c4','#6a4c93','#ff6fa5'];
+// ---------- sound
+function snd(f,d,type='sine',sl=0,v=.15,at=0){if(muted)return;AC=AC||new(window.AudioContext||webkitAudioContext)();const o=AC.createOscillator(),g=AC.createGain(),t=AC.currentTime+at;o.type=type;o.frequency.setValueAtTime(f,t);if(sl)o.frequency.exponentialRampToValueAtTime(sl,t+d);g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.001,t+d);o.connect(g);g.connect(AC.destination);o.start(t);o.stop(t+d)}
+const pop=()=>snd(500,.12,'sine',900),swoosh=()=>{snd(1200,.7,'sawtooth',200,.05);snd(300,.7,'sine',1500,.08)},chime=()=>[523,659,784,1046].forEach((f,i)=>snd(f,.25,'triangle',0,.12,i*.1)),flap=()=>snd(90,.05,'square',0,.02);
+$('mute').onclick=()=>{muted=!muted;$('mute').textContent=muted?'🔇':'🔊';sk++;speechSynthesis.cancel()};
+let VO=localStorage.hzv||'uk',VS=[];const loadV=()=>VS=speechSynthesis.getVoices();loadV();speechSynthesis.onvoiceschanged=loadV;
+const VN={uk:'British lady',deep:'Deep storyteller',country:'Country sweetheart'};
+function pickV(){const f=(re,l)=>VS.find(v=>re.test(v.name)&&(!l||v.lang.replace('_','-').startsWith(l)))||VS.find(v=>l&&v.lang.replace('_','-').startsWith(l));
+if(VO=='uk')return{v:f(/Kate|Serena|Stephanie|Martha|Fiona/,'en-GB'),p:1.1,r:.92};
+if(VO=='deep')return{v:f(/Daniel|Arthur|Gordon|Aaron|Fred|Alex/,'en-GB')||f(/Aaron|Fred|Alex|Evan/,'en-US'),p:.55,r:.8};
+return{v:f(/Samantha|Ava|Allison|Susan|Nicky|Zoe/,'en-US'),p:1.2,r:.82}}
+let sk=0;
+function speak(t,cb){const b=$('say');b.textContent=t;b.style.display='block';clearTimeout(speak.h);speak.h=setTimeout(()=>b.style.display='none',Math.max(3500,t.length*70));
+const my=++sk;if(muted){cb&&setTimeout(cb,Math.min(4000,t.length*50));return}speechSynthesis.cancel();const{v,p,r}=pickV(),ss=t.match(/[^.!?]+[.!?]*/g)||[t];let i=0;
+const nx=()=>{if(my!=sk)return;if(i>=ss.length)return cb&&cb();const s=ss[i++].trim();if(!s)return nx();const u=new SpeechSynthesisUtterance(s);if(v)u.voice=v;const ex=/!/.test(s),q=/\?/.test(s);
+u.pitch=Math.max(.1,p*(ex?1.12:q?1.2:1)*(1+(Math.random()-.5)*.14));u.rate=r*(ex?1.05:1)*(1+(Math.random()-.5)*.08);u.onend=()=>setTimeout(nx,180+Math.random()*120);speechSynthesis.speak(u)};nx()}
+$('vc').onclick=()=>{VO={uk:'deep',deep:'country',country:'uk'}[VO];localStorage.hzv=VO;speak("Hi Hazel! Now you hear the "+VN[VO]+" voice!")};
+function ok(){const o=$('ok');o.style.display='flex';chime();setTimeout(()=>o.style.display='none',900)}
+// ---------- butterfly
+const B={x:200,y:300,tx:200,ty:300,mode:'real',sc:1,fl:0,ang:0,wave:0,wander:true,trail:[],dust:false};
+function wing(side,f,real){cx.save();cx.scale(side*f,1);
+ let fg='#fff7a8';if(real){fg=cx.createRadialGradient(20,-30,5,40,-20,95);fg.addColorStop(0,'#fffef6');fg.addColorStop(1,'#d9cc94')}cx.fillStyle=fg;cx.strokeStyle='#111';cx.lineWidth=real?1.5:5;cx.lineJoin='round';
+ cx.beginPath();cx.moveTo(0,-8);cx.bezierCurveTo(30,-95,100,-85,92,-15);cx.bezierCurveTo(70,-5,30,0,0,0);cx.fill();cx.stroke();
+ cx.beginPath();cx.moveTo(0,0);cx.bezierCurveTo(60,-4,85,20,60,55);cx.lineTo(38,100);cx.lineTo(28,55);cx.bezierCurveTo(10,55,0,30,0,0);cx.fill();cx.stroke();
+ cx.strokeStyle='#111';cx.lineWidth=real?7:6;cx.lineCap='round';
+ [[28,-60,88,-48],[22,-40,86,-30],[18,-22,82,-14],[30,10,70,14],[26,30,56,40]].forEach(l=>{cx.beginPath();cx.moveTo(l[0]*.3,l[1]*.4);cx.lineTo(l[2],l[3]);cx.stroke()});
+ if(real){cx.lineWidth=.8;for(let k=0;k<7;k++){cx.beginPath();cx.moveTo(3,-4);cx.lineTo(30+k*9,-70+k*14);cx.stroke()}}
+ cx.fillStyle=real?'#3a7bd5':'#4cc9f0';cx.beginPath();cx.arc(44,38,7,0,7);cx.fill();cx.fillStyle='#ff4d4d';cx.beginPath();cx.arc(34,52,6,0,7);cx.fill();cx.restore()}
+function drawB(){cx.setTransform(DPR,0,0,DPR,0,0);cx.clearRect(0,0,innerWidth,innerHeight);drawP(DT);
+ if(B.dust){B.trail.forEach((p,i)=>{cx.globalAlpha=i/B.trail.length;cx.fillStyle=COL[i%7];cx.beginPath();cx.arc(p.x+Math.sin(i)*6,p.y+Math.cos(i*2)*6,3,0,7);cx.fill()});cx.globalAlpha=1}
+ const real=B.mode=='real',f=.25+.75*Math.abs(Math.cos(B.fl));
+ cx.save();cx.translate(B.x,B.y);cx.rotate(B.ang);cx.scale(B.sc,B.sc);
+ if(real){cx.shadowColor='#0005';cx.shadowBlur=20;cx.shadowOffsetY=18}
+ const im=real&&IMG.naturalWidth;if(im){cx.scale(f,1);const h=200*IMG.naturalHeight/IMG.naturalWidth;cx.drawImage(IMG,-100,-h/2,200,h);cx.scale(1/f,1)}else{wing(-1,f,real);wing(1,f,real)}cx.shadowColor='transparent';
+ if(!im){cx.fillStyle=real?'#222':'#333';cx.strokeStyle='#111';cx.lineWidth=real?1:4;cx.beginPath();cx.ellipse(0,0,8,38,0,0,7);cx.fill();cx.stroke()}
+ if(!real){cx.fillStyle='#fff';cx.beginPath();cx.arc(0,-34,17,0,7);cx.fill();cx.stroke();cx.fillStyle='#000';cx.beginPath();cx.arc(-6,-37,3,0,7);cx.arc(6,-37,3,0,7);cx.fill();cx.beginPath();cx.arc(0,-31,7,.1,3);cx.stroke();
+  cx.lineWidth=3;cx.beginPath();cx.moveTo(-5,-50);cx.quadraticCurveTo(-18,-72,-26,-68);cx.moveTo(5,-50);cx.quadraticCurveTo(18,-72,26,-68);cx.stroke();
+  cx.lineWidth=6;cx.lineCap='round';cx.beginPath();cx.moveTo(10,-8);cx.lineTo(34+Math.sin(B.wave)*10,-30-Math.abs(Math.cos(B.wave))*22);cx.stroke()}
+ cx.restore()}
+const P=[];let DT=.016;function burst(x,y,n,pw){for(let i=0;i<n;i++){const a=Math.random()*6.283,v=Math.sqrt(Math.random())*pw;P.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v-pw*.15,l:1,d:.3+Math.random()*.5,r:1.5+Math.random()*4,h:Math.random()*360,s:Math.random()<.4})}}
+function twinkle(){const w=$('wel').getBoundingClientRect();for(let i=0;i<3;i++)P.push({x:w.left+Math.random()*w.width,y:w.top+Math.random()*w.height,vx:0,vy:20,l:1,d:1.2,r:1+Math.random()*3,h:Math.random()*360,s:true,tw:1})}
+function drawP(dt){for(let i=P.length-1;i>=0;i--){const p=P[i];p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.985;if(!p.tw){p.vy+=420*dt;p.vy*=.99}p.l-=p.d*dt;if(p.l<=0){P.splice(i,1);continue}
+cx.globalAlpha=Math.max(0,p.l)*(.5+.5*Math.sin(p.l*40+p.h));cx.fillStyle=`hsl(${p.h+(1-p.l)*200},100%,${p.s?85:62}%)`;cx.shadowColor=cx.fillStyle;cx.shadowBlur=8;
+if(p.s){cx.save();cx.translate(p.x,p.y);cx.rotate(p.h);cx.fillRect(-p.r,-p.r*.25,p.r*2,p.r*.5);cx.fillRect(-p.r*.25,-p.r,p.r*.5,p.r*2);cx.restore()}else{cx.beginPath();cx.arc(p.x,p.y,p.r,0,7);cx.fill()}}cx.globalAlpha=1;cx.shadowBlur=0}
+const IMG=new Image();IMG.src='butterfly.png';
+let lastT=0;(function loop(t){const dt=Math.min(.05,(t-lastT)/1000||.016);lastT=t;DT=dt;
+ if(B.mode=='real'&&B.wander&&(Math.hypot(B.tx-B.x,B.ty-B.y)<30||Math.random()<.01)){B.tx=Math.random()*innerWidth;B.ty=Math.random()*innerHeight}
+ const dx=B.tx-B.x,dy=B.ty-B.y,d=Math.hypot(dx,dy),sp=B.mode=='real'?260:380;
+ if(d>4){const s=Math.min(d*6,sp)*dt;B.x+=dx/d*s;B.y+=dy/d*s;if(B.mode=='real')B.ang+=(Math.atan2(dy,dx)+Math.PI/2-B.ang)*.1;else B.ang=Math.sin(t/300)*.15*Math.min(1,d/50);
+  if(B.dust&&(!B.trail.length||Math.hypot(B.x-B.trail.at(-1).x,B.y-B.trail.at(-1).y)>8)){B.trail.push({x:B.x,y:B.y});if(B.trail.length>40)B.trail.shift()}}
+ else if(B.mode!='real')B.ang*=.9;else B.ang+=0;
+ B.fl+=dt*(B.mode=='real'?(d>4||B.wander?30:18):(B.still?3:d>4?16:5));B.wave+=dt*(B.waving?9:0);
+ if(B.mode=='real'&&Math.sin(B.fl)>.99)flap();
+ drawB();requestAnimationFrame(loop)})(0);
+function fly(x,y){B.tx=x;B.ty=y}
+// ---------- launch
+function launch(){const tw=setInterval(twinkle,50);B.sc=.9;B.wander=true;const w=$('wel');w.innerHTML=['Welcome','Hazel'].map(x=>'<div style="white-space:nowrap">'+[...x].map(c=>'<span>'+c+'</span>').join('')+'</div>').join('');
+ w.style.transition='opacity 5s linear';w.style.opacity=0;requestAnimationFrame(()=>requestAnimationFrame(()=>w.style.opacity=1));
+ setTimeout(()=>{clearInterval(tw);const r=w.getBoundingClientRect();burst(r.left+r.width/2,r.top+r.height/2,260,650);burst(r.left+r.width*.25,r.top+r.height/2,90,450);burst(r.left+r.width*.75,r.top+r.height/2,90,450);w.querySelectorAll('span').forEach(s=>{s.style.transform=`translate(${(Math.random()-.5)*innerWidth*1.5}px,${(Math.random()-.5)*innerHeight*1.5}px) rotate(${Math.random()*720}deg) scale(2.5)`;s.style.opacity=0});snd(120,.6,'sawtooth',30,.2);chime();
+  B.wander=false;B.mode='cartoon';B.sc=1.3;B.still=true;B.waving=true;fly(innerWidth/2,innerHeight/2);
+  setTimeout(()=>{w.style.display='none';B.waving=false;speak("Hi Hazel! I'm Flutter! Let's find bugs together!");menu()},5000)},5600)}
+// ---------- menu
+const sp=`<span style="font-size:8vw">`;
+function menu(){phase='menu';B.sc=.38;B.still=false;B.dust=false;$('back').style.display='none';$('sub').style.display='none';const m=$('menu');m.style.display='block';
+ let h='<div class="grid">';
+ h+=`<div class="b full ${S.pics.length?'':'bounce'}" style="background:#ff595e" data-go="cam"><i>📷</i>${S.pics.length?'<small>Take a pic!</small>':''}</div>`;
+ if(S.pics.length)h+=`<div class="b" style="background:#1982c4" data-go="map"><i>🗺️</i><small>Map</small></div><div class="b" style="background:#6a4c93" data-go="book"><i>📖</i><small>Stories</small></div>`;
+ const done=new Set(S.pics.map(p=>p.l)).size==26;
+ if(done)h+=`<div class="b" style="background:#2ec4b6" data-go="share"><i>➡️</i><small>Share</small></div>`;
+ for(let i=0;i<26;i++){const L=String.fromCharCode(65+i),ps=S.pics.filter(p=>p.l==L);
+  h+=ps.length?`<div class="b" style="background:${COL[i%7]};border-color:gold;animation:rb 3s linear" data-go="let" data-l="${L}"><img src="${ps.at(-1).img}"><i>${L}</i></div>`:`<div class="b grey" data-go="let" data-l="${L}"><i>${L}</i></div>`}
+ m.innerHTML=h+'</div>';guide()}
+function guide(){if(phase!='menu'||Date.now()<follow)return;const m=$('menu'),els=[...m.querySelectorAll('.b')];let best,bd=1e9;els.forEach(e=>{const r=e.getBoundingClientRect(),d=Math.abs(r.top+r.height/2-innerHeight*.45);if(d<bd){bd=d;best=r}});if(best)fly(best.left-6,best.top+best.height*.5)}
+setInterval(guide,250);$('menu').addEventListener('scroll',()=>{follow=0;guide()});
+document.addEventListener('click',e=>{act=Date.now();const t=e.target.closest('[data-go]');if(!t)return;pop();const g=t.dataset.go;
+ if(g=='cam')$('cam').click();else if(g=='let')letter(t.dataset.l);else if(g=='map')mapScr();else if(g=='book')book();else if(g=='share')book(true)});
+function sub(h){phase='sub';$('menu').style.display='none';const s=$('sub');s.style.display='block';s.innerHTML=h;s.scrollTop=0;$('back').style.display='block';B.sc=.5;exitFx()}
+function exitFx(){B.dust=true;B.trail=[];fly(innerWidth+120,-100);setTimeout(()=>fly(innerWidth*.8,innerHeight*.15),500)}
+$('back').onclick=()=>{stopTour();sk++;speechSynthesis.cancel();pop();B.dust=false;fly(-120,innerHeight/2);setTimeout(menu,300)};
+['pointerdown','pointermove'].forEach(ev=>addEventListener(ev,e=>{act=Date.now();if(phase=='launch')return;follow=Date.now()+1800;if(e.target.closest('.b,button,input'))return;fly(e.clientX,e.clientY)}));
+setInterval(()=>{if(phase=='launch'||Date.now()-act<120000)return;act=Date.now();let k=0;B.still=false;const iv=setInterval(()=>{fly(Math.random()*innerWidth,Math.random()*innerHeight*.6);if(++k>4){clearInterval(iv);fly(innerWidth/2,innerHeight/2);B.waving=true;setTimeout(()=>B.waving=false,3000)}},700);speak("Hey butter beans! You still with me?")},1000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&phase!='launch'){act=Date.now();B.waving=true;setTimeout(()=>B.waving=false,2500);speak("Welcome back, Hazel! Let's keep exploring!")}});
+// ---------- camera
+const FACTS={butterfly:"Butterflies taste with their feet! They sip sweet nectar from flowers and are most busy in spring and summer. Their babies, caterpillars, munch on leaves.",moth:"Moths mostly come out at night and use the moon to find their way. Many love to flutter around porch lights. Their caterpillars eat leaves.",ant:"Ants live in big families called colonies. They can carry things much heavier than themselves! You can find them almost everywhere, all year.",bee:"Bees visit flowers and carry pollen, which helps plants grow fruit. They are busiest in spring and summer and live in hives.",ladybug:"Ladybugs are beetles that eat tiny pests called aphids. Their bright red color tells birds, don't eat me! Look for them on garden plants.",beetle:"Beetles are the biggest insect family on Earth. They have hard shell wings that cover softer flying wings. Many eat leaves, wood, or other bugs.",dragonfly:"Dragonflies zoom near ponds and can fly forward, backward, and hover. They eat mosquitoes! Look for them in summer near water.",grasshopper:"Grasshoppers jump super far with strong back legs. They munch on grass and leaves, and are easiest to spot in summer and fall.",cricket:"Crickets sing by rubbing their wings together. Only the boys chirp! They like grass and leaves and sing on warm nights.",fly:"Flies have two wings, not four like most insects. They taste with their feet and can walk on the ceiling!",caterpillar:"Caterpillars eat and eat leaves, then turn into butterflies or moths. They grow so fast they wiggle out of their old skin!",wasp:"Wasps build paper nests by chewing wood into pulp. Many eat other bugs that bother gardens. They are most active in summer.",firefly:"Fireflies make their own light to talk to each other on warm summer nights. Their babies often live in damp grass.",mantis:"Praying mantises hold their front legs up like they are praying, but they are hunting other bugs! They hide on green plants.",spider:"Spiders are arachnids, not insects, because they have eight legs! Many spin silk webs to catch tiny bugs to eat.",cicada:"Cicadas sing very loudly in summer. Some spend years underground before they climb up into the sunshine!"};
+const fact=n=>{n=n.toLowerCase();for(const k in FACTS)if(n.includes(k))return FACTS[k];return"Every insect has six legs and three body parts: head, middle, and tail end. This one is a special find! Ask a grown-up to open Google Lens to learn more."};
+$('cam').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const c=document.createElement('canvas'),s=Math.min(1,380/Math.max(im.width,im.height));c.width=im.width*s;c.height=im.height*s;c.getContext('2d').drawImage(im,0,0,c.width,c.height);identify(c.toDataURL('image/jpeg',.6))};im.src=r.result};r.readAsDataURL(f);e.target.value=''};
+function lens1(img){sub(`<h2>Look closer! 🔍</h2><div class="card"><img src="${img}"><p>Let's ask Google Lens what this bug is! Tap the blue button, pick this photo, then come back here.</p><a target="_blank" href="https://lens.google.com/"><button class="t" style="background:#4285f4">Open Google Lens 🔍</button></a> <a download="bug.jpg" href="${img}"><button class="t" style="background:#ff924c">💾 Save photo</button></a><br><button class="t" id="nxt">I'm back ➡</button></div>`);$('nxt').onclick=()=>ask(img);speak("Let's ask Google Lens! Tap the blue button, then come back and tell me the name!")}
+function ask(img,pre){let tx=null;sub(`<h2>What bug is this?</h2><div class="card"><img src="${img}"><p>Type its name (like ant, bee, ladybug) 🐞</p><input id="nm" style="font:inherit;font-size:26px;width:90%;padding:8px;border-radius:14px;border:3px solid #ffb703"><div id="sg"></div><button class="t" id="mic">🎤 Say it</button><button class="t" id="sv">Save ✔</button></div>`);
+ if(pre)$('nm').value=pre;let sgT;$('nm').oninput=()=>{tx=null;clearTimeout(sgT);const q=$('nm').value.trim();if(q.length<3)return;sgT=setTimeout(()=>fetch('https://api.inaturalist.org/v1/taxa/autocomplete?per_page=6&taxon_id=47120&q='+encodeURIComponent(q)).then(r=>r.json()).then(j=>{$('sg').innerHTML=j.results.map((t,i)=>`<button class="t" style="background:#6a4c93;font-size:16px" data-i="${i}">${esc(t.preferred_common_name||t.name)}</button>`).join('');$('sg').querySelectorAll('button').forEach(b=>b.onclick=()=>{tx=j.results[b.dataset.i];$('nm').value=tx.preferred_common_name||tx.name;$('sg').innerHTML='✔ '+esc(tx.name)})}).catch(()=>{}),350)};
+ $('mic').onclick=()=>{const R=window.SpeechRecognition||window.webkitSpeechRecognition;if(!R)return speak("Type it instead!");const r=new R();r.onresult=e=>{$('nm').value=e.results[0][0].transcript.split(' ').at(-1);$('nm').oninput()};r.start()};
+ $('sv').onclick=()=>{const n=$('nm').value.trim();if(!/[a-z]/i.test(n))return speak("Tell me its name first!");savePic(img,n,tx,{})}}
+function savePic(img,n,tx,ex){const p=Object.assign({id:Date.now(),n:n,l:n.match(/[a-z]/i)[0].toUpperCase(),img,t:new Date().toLocaleString()},ex);
+ const fin=()=>{S.pics.push(p);try{localStorage.hz=JSON.stringify(S.pics)}catch(e){speak("Memory is full! Ask a grown-up to export first.")}ok();swoosh();setTimeout(()=>{phase='menu';$('back').click();setTimeout(()=>{const t=document.querySelector(`[data-l="${p.l}"]`);if(t){const r=t.getBoundingClientRect();t.scrollIntoView({block:'center'});B.sc=.38;fly(r.left+r.width/2,r.top+r.height/2);speak(`${p.n} starts with ${p.l}! ${p.l} is for ${p.n}!`)}},600)},900)};
+ const go=()=>navigator.geolocation?navigator.geolocation.getCurrentPosition(g=>{p.la=g.coords.latitude;p.lo=g.coords.longitude;fin()},fin,{timeout:5000}):fin();
+ if(tx)p.sci=tx.name;(tx&&tx.wikipedia_url?fetch('https://en.wikipedia.org/api/rest_v1/page/summary/'+tx.wikipedia_url.split('/').pop()).then(r=>r.json()).then(j=>{p.wiki=(j.extract||'').split('. ').slice(0,3).join('. ')}).catch(()=>{}):Promise.resolve()).then(go)}
+const PROMPT='You help a 7-year-old girl named Hazel identify bugs from her photo. Reply with ONLY JSON, no other text: {"found":true or false,"name":"simple common name, 1-2 words (use the scientific name only if no simple name exists)","sci":"scientific name","facts":"3 short sentences a 7 year old can read: where it lives, what it eats, and which seasons it is seen","story":"a fun 3-sentence mini story for a 7 year old about this bug, starring Hazel"}. If no insect, spider or bug is visible, set found to false.';
+function setKey(){const k=prompt('Grown-up: paste your Anthropic API key. It is saved only on this phone. (Leave blank to remove it.)',localStorage.hzk||'');if(k===null)return localStorage.hzk;if(k.trim())localStorage.hzk=k.trim();else localStorage.removeItem('hzk');return localStorage.hzk}
+$('st').onclick=setKey;
+async function identify(img){if(!localStorage.hzk&&!setKey())return ask(img);
+ sub(`<h2>Flutter is looking... 🔍</h2><div class="card"><img src="${img}"><p>Let me see what bug this is!</p></div>`);speak("Hmm, let me look very closely at your bug!");
+ try{const c=new AbortController();setTimeout(()=>c.abort(),25000);
+  const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',signal:c.signal,headers:{'content-type':'application/json','x-api-key':localStorage.hzk,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-5-5',max_tokens:700,messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:'image/jpeg',data:img.split(',')[1]}},{type:'text',text:PROMPT}]}]})});
+  const j=await r.json();if(r.status==401){localStorage.removeItem('hzk');throw 0}if(!j.content)throw 0;
+  const d=JSON.parse(j.content.map(x=>x.text||'').join('').replace(/```json|```/g,'').trim());
+  if(!d.found||!/[a-z]/i.test(d.name||'')){speak("I can't see a bug! Let's try again or tell me its name.");return ask(img)}
+  sub(`<h2>I found it! ✨</h2><div class="card"><img src="${img}"><p class="big" style="font-size:12vw;margin:0">${esc(d.name)}</p><small>${esc(d.sci||'')}</small><p>${esc(d.facts||'')}</p><button class="t" id="yes">Yes! ✔</button><button class="t" style="background:#ff924c" id="no">Not right ✏️</button></div>`);
+  speak(`It's a ${d.name}! ${d.facts||''}`);
+  $('yes').onclick=()=>savePic(img,d.name,null,{sci:d.sci,wiki:d.facts,st:d.story?[d.story]:null});$('no').onclick=()=>ask(img,d.name)
+ }catch(e){speak("My bug-finding glasses aren't working. Tell me its name!");ask(img)}}
+// ---------- letter / lens
+function letter(L){const ps=S.pics.filter(p=>p.l==L);if(!ps.length){speak(`No bug for ${L} yet! Find one that starts with ${L}!`);return}
+ sub(`<p class="big">${L}</p>`+ps.map(p=>`<div class="card"><img src="${p.img}"><h2>${esc(p.n)}</h2><small>${esc(p.t)}${p.la?' · 📍 '+p.la.toFixed(3)+', '+p.lo.toFixed(3):''}</small><br><button class="t" data-lens="${p.id}">🔍 Look closer</button></div>`).join(''));
+ $('sub').querySelectorAll('[data-lens]').forEach(b=>b.onclick=()=>{const p=S.pics.find(x=>x.id==b.dataset.lens);const t=`${p.n} starts with the letter ${L}, so it lives in the ${L} box! ${(p.wiki||fact(p.n))}`;speak(t,ok);b.insertAdjacentHTML('afterend',`<p>${esc(t)}</p><a href="https://lens.google.com/" target="_blank"><button class="t" style="background:#4285f4">Open Google Lens 🔍</button></a>`);b.remove()})}
+// ---------- map
+let tour=0;const stopTour=()=>tour++;
+function mapScr(){const ps=S.pics.slice().sort((a,b)=>a.l<b.l?-1:1);const g=ps.filter(p=>p.la!=null);
+ const la=g.map(p=>p.la),lo=g.map(p=>p.lo),mnA=Math.min(...la),mxA=Math.max(...la),mnO=Math.min(...lo),mxO=Math.max(...lo);
+ const pos=ps.map((p,i)=>{let x,y;if(p.la!=null&&(mxA>mnA||mxO>mnO)){x=40+(p.lo-mnO)/((mxO-mnO)||1)*240;y=360-(p.la-mnA)/((mxA-mnA)||1)*320}else{x=60+(i%4)*70;y=120+Math.floor(i/4)*70}return{p,x,y}});
+ sub(`<h2>My Bug Map 🗺️</h2><svg id="mp" viewBox="0 0 320 400" style="width:100%;background:#c8f7c5;border:5px solid #fff;border-radius:24px"><circle cx="60" cy="70" r="40" fill="#8ac926"/><circle cx="260" cy="320" r="55" fill="#8ac926"/><ellipse cx="240" cy="90" rx="50" ry="25" fill="#7fd8ff"/><path d="M0 220Q80 180 160 230T320 200" stroke="#7fd8ff" stroke-width="18" fill="none"/><polyline points="${pos.map(q=>q.x+','+q.y).join(' ')}" fill="none" stroke="#ff6fa5" stroke-width="4" stroke-dasharray="2 8" stroke-linecap="round"/>${pos.map((q,i)=>`<g data-i="${i}" style="cursor:pointer"><circle cx="${q.x}" cy="${q.y}" r="19" fill="${COL[i%7]}" stroke="#fff" stroke-width="3"/><text x="${q.x}" y="${q.y+8}" text-anchor="middle" font-size="22" fill="#fff" font-weight="900">${q.p.l}</text></g>`).join('')}</svg>
+ <div style="text-align:center"><button class="t" id="gl">🌍 Fly around</button><a target="_blank" onclick="speak('Tap Done or Back at the top to come back to me!')" href="https://www.google.com/maps/search/?api=1&query=${g.length?g[0].la+','+g[0].lo:'insects'}"><button class="t" style="background:#4285f4">Google Maps 🗺️</button></a></div>`);
+ const go=i0=>{const my=++tour;let i=i0;const step=()=>{if(my!=tour||i>=pos.length)return;const q=pos[i],pt=$('mp').createSVGPoint();pt.x=q.x;pt.y=q.y;const s=pt.matrixTransform($('mp').getScreenCTM());B.sc=.4;fly(s.x,s.y-20);swoosh();speak(`${q.p.l} is for ${q.p.n}!`,()=>{i++;setTimeout(step,600)});if(q.p.la!=null)$('gl').nextSibling.href=`https://earth.google.com/web/@${q.p.la},${q.p.lo},0a,500d,35y,0h,0t,0r`};step()};
+ $('gl').onclick=()=>go(0);document.querySelectorAll('#mp g').forEach(e=>e.onclick=()=>go(+e.dataset.i))}
+// ---------- books
+function story(ps,said){const pg=[],ds=S.pics.map(p=>p.id).sort(),f=d=>new Date(d).toLocaleDateString(undefined,{month:'long',day:'numeric',year:'numeric'}),rg=ds.length?(f(ds[0])==f(ds.at(-1))?f(ds[0]):f(ds[0])+' to '+f(ds.at(-1))):'';
+pg.push({L:'📖',t:`Hazel's Bug Book. Bugs found ${rg}.`});
+ps.slice(0,3).forEach(p=>{pg.push({L:p.l,img:p.img,t:`${p.l} is for ${p.n}! Hazel went out to look for bugs. She found a ${p.n} ${p.la!=null?'at a special spot on her map':'on a sunny day'}.`});pg.push({L:p.l,img:p.img,t:said?`Hazel said, "${said}"`:'Hazel looked very close and said hello.'});pg.push({L:p.l,t:p.st?p.st.join(' '):(p.wiki||fact(p.n)).split('. ').slice(0,2).join('. ')+'.'})});
+while(pg.length<5)pg.push({L:'★',t:'Hazel waved goodbye. What bug will she find next? The end!'});pg.push({L:'★',t:'The end! Hazel is a bug explorer!'});return pg.slice(0,10)}
+const sig=()=>S.pics.map(p=>p.id).join();
+function pages(){const pg=story(S.pics.slice().sort((a,b)=>a.l<b.l?-1:1));try{const e=JSON.parse(localStorage.hzb||'null');if(e&&e.s==sig())pg.forEach((p,i)=>{if(e.t[i]!=null)p.t=e.t[i]})}catch(_){}return pg}
+function editor(pr){const pg=pages();sub(`<h2>Grown-ups: read &amp; edit together ✏️</h2>`+pg.map((p,i)=>`<div class="card">${p.img?`<img src="${p.img}" style="max-height:140px">`:''}<b>${p.L}</b><textarea style="width:100%;font:inherit;font-size:18px;height:110px">${esc(p.t)}</textarea></div>`).join('')+`<div style="text-align:center"><button class="t" id="sv2">Save ✔</button>${pr?'<button class="t" style="background:#1982c4" id="mk">🖨️ Make PDF</button>':''}<button class="t" style="background:#999" id="rs">Start over</button></div>`);
+const sv=()=>{localStorage.hzb=JSON.stringify({s:sig(),t:[...$('sub').querySelectorAll('textarea')].map(x=>x.value)})};
+$('sv2').onclick=()=>{sv();ok()};$('rs').onclick=()=>{localStorage.removeItem('hzb');editor(pr)};
+if(pr)$('mk').onclick=()=>{sv();$('print').innerHTML=pages().map(p=>`<div class="pp"><h1>${p.L}</h1>${p.img?`<img src="${p.img}">`:''}<p>${esc(p.t)}</p></div>`).join('');print()}}
+function book(sh){sub(`<h2>${sh?'Share My Book ➡️':'My Stories 📖'}</h2><div style="text-align:center"><button class="t" data-r="abc">📖 ABC<br>Read</button><button class="t" data-r="ear" style="background:#ff924c">📖👂<br>Listen</button><button class="t" data-r="mouth" style="background:#ff595e">📖👄<br>Tell me!</button><br><button class="t" style="background:#6a4c93" id="ed">✏️ Grown-ups edit</button>${sh?'<button class="t" style="background:#1982c4" id="pr">🖨️ Review &amp; PDF</button>':''}</div>`);
+$('sub').querySelectorAll('[data-r]').forEach(b=>b.onclick=()=>{const m=b.dataset.r;if(m=='mouth'){const R=window.SpeechRecognition||window.webkitSpeechRecognition;if(!R){return speak("Your phone can't hear yet. Try Read!")}speak("Tell me about your bug!",()=>{const r=new R();r.onresult=e=>reader(story([S.pics.at(-1)],e.results[0][0].transcript),true);r.onerror=()=>speak("I couldn't hear you. Try again!");r.start()})}else reader(pages(),m=='ear')});
+$('ed').onclick=()=>editor(false);if($('pr'))$('pr').onclick=()=>editor(true)}
+function reader(pg,listen){let i=0;const show=()=>{sub(`<p class="big" style="font-size:16vw">${pg[i].L}</p><div class="card">${pg[i].img?`<img src="${pg[i].img}">`:''}</div><div class="pg">${esc(pg[i].t)}</div><div style="text-align:center">${i?'<button class="t" id="pv">⬅</button>':''}<button class="t" id="nx">${i<pg.length-1?'➡':'✔'}</button></div>`);
+  $('nx').onclick=()=>{if(i<pg.length-1){i++;show()}else{ok();setTimeout(()=>$('back').click(),900)}};if($('pv'))$('pv').onclick=()=>{i--;show()};
+  if(listen)speak(pg[i].t,()=>{if(i<pg.length-1){i++;show()}else $('nx').click()})};show()}
+launch();
+</script></body></html>
